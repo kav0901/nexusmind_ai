@@ -1,0 +1,409 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusMind // AI</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --bg: #0b0f19; --panel: rgba(20, 25, 35, 0.6); --border: rgba(255, 255, 255, 0.1);
+            --accent: #6366f1; --accent-hover: #4f46e5; --text-main: #f8fafc; --text-muted: #94a3b8;
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; background: var(--bg);
+            background-image: radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 25%);
+            color: var(--text-main); font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        #auth-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(11, 15, 25, 0.85); backdrop-filter: blur(10px);
+            display: flex; justify-content: center; align-items: center; z-index: 100;
+        }
+        .auth-card {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 20px;
+            padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        .auth-card h2 { margin-top: 0; font-size: 1.8rem; background: linear-gradient(to right, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        /* THE FIX: Forcing background and explicit slate border across all inputs */
+        .auth-input {
+            display: block; width: 100%; padding: 12px; margin: 12px 0; 
+            background: #131722 !important; 
+            border: 1px solid #334155 !important; 
+            border-radius: 12px; color: var(--text-main); font-family: inherit; font-size: 1rem; box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+        .auth-input::placeholder { color: var(--text-muted); opacity: 1; }
+        .auth-input:focus { outline: none; border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important; background: #131722 !important; }
+
+        /* THE FIX: Mirroring the exact same border to the browser's autofill engine */
+        input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #131722 inset !important;
+            -webkit-text-fill-color: #f8fafc !important;
+            border: 1px solid #334155 !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
+        .auth-btn { width: 100%; padding: 14px; margin-top: 15px; background: var(--accent); color: white; border: none; border-radius: 12px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: 0.3s; }
+        .auth-btn:hover { background: var(--accent-hover); transform: translateY(-2px); }
+        .auth-toggle { margin-top: 20px; font-size: 0.9rem; color: var(--text-muted); cursor: pointer; text-decoration: underline; }
+        .auth-error { color: #ef4444; font-size: 0.9rem; margin-top: 10px; display: none; }
+
+        .container { width: 100vw; height: 100vh; background: var(--panel); backdrop-filter: blur(16px); display: none; flex-direction: row; overflow: hidden; }
+        .sidebar { width: 320px; min-width: 320px; border-right: 1px solid var(--border); background: rgba(0, 0, 0, 0.3); display: flex; flex-direction: column; }
+        .sidebar-header { padding: 24px 20px 12px 20px; font-weight: 700; color: #c084fc; letter-spacing: 1px; text-transform: uppercase; font-size: 0.85rem; }
+        .new-chat-btn { background: linear-gradient(135deg, var(--accent), #a855f7); color: white; border: none; padding: 12px; margin: 0 15px 15px 15px; border-radius: 12px; cursor: pointer; font-weight: 600; display: flex; justify-content: center; gap: 8px; transition: all 0.2s; }
+        .new-chat-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4); }
+        .history-list { flex-grow: 1; overflow-y: auto; padding: 0 15px 15px 15px; display: flex; flex-direction: column; gap: 10px; }
+        .history-list::-webkit-scrollbar { width: 4px; }
+        .history-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .history-item { background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 12px; padding: 14px; cursor: pointer; transition: all 0.2s; }
+        .history-item:hover { background: rgba(255, 255, 255, 0.07); border-color: var(--accent); }
+        .history-prompt { font-size: 0.85rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+        .history-date { font-size: 0.65rem; color: var(--text-muted); margin-top: 6px; text-align: right; }
+        
+        .user-profile { padding: 15px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); }
+        .user-name-container { display: flex; flex-direction: column; }
+        .user-name { font-weight: 600; font-size: 0.95rem; color: #a855f7; }
+        .user-email { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+        .logout-btn { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; transition: 0.3s; }
+        .logout-btn:hover { color: #ef4444; border-color: #ef4444; }
+
+        .main-chat-area { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; background: rgba(0,0,0,0.05); }
+        header { padding: 20px 30px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(0, 0, 0, 0.15); }
+        h1 { margin: 0; font-size: 1.4rem; font-weight: 800; background: linear-gradient(to right, #818cf8, #c084fc, #f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
+        .toggle-container { display: flex; gap: 8px; background: rgba(0, 0, 0, 0.4); padding: 6px; border-radius: 14px; border: 1px solid var(--border); }
+        .toggle-btn { background: transparent; border: none; color: var(--text-muted); padding: 8px 18px; border-radius: 10px; cursor: pointer; font-family: inherit; font-weight: 600; font-size: 0.9rem; transition: all 0.3s; }
+        .toggle-btn:hover { color: var(--text-main); }
+        .toggle-btn.active { background: var(--accent); color: white; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4); }
+        #chat-box { flex-grow: 1; overflow-y: auto; padding: 40px; display: flex; flex-direction: column; gap: 24px; scroll-behavior: smooth; }
+        #chat-box::-webkit-scrollbar { width: 6px; }
+        #chat-box::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .message { max-width: 80%; display: flex; flex-direction: column; animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message span:first-child { font-size: 0.8rem; margin-bottom: 6px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .user-msg { align-self: flex-end; align-items: flex-end; }
+        .user-msg span:first-child { display: none; }
+        .user-msg .content { background: var(--accent); color: white; padding: 14px 20px; border-radius: 20px 20px 4px 20px; font-size: 0.95rem; line-height: 1.5; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15); }
+        .ai-msg { align-self: flex-start; align-items: flex-start; }
+        .ai-msg .content { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); padding: 18px 24px; border-radius: 20px 20px 20px 4px; font-size: 0.95rem; line-height: 1.7; color: #e2e8f0; }
+        .ai-msg .content b, .ai-msg .content strong { color: #818cf8; }
+        .error-msg .content { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); color: #fca5a5; }
+        .upload-preview { padding: 10px 40px; font-size: 0.85rem; color: #34d399; font-weight: 500; background: rgba(52, 211, 153, 0.05); border-top: 1px solid var(--border); display: none; }
+        .input-area { padding: 24px 40px; border-top: 1px solid var(--border); background: rgba(0, 0, 0, 0.2); display: flex; gap: 15px; align-items: center; }
+        .input-wrapper { flex-grow: 1; display: flex; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border); border-radius: 16px; padding: 6px; transition: all 0.3s; }
+        .input-wrapper:focus-within { border-color: var(--accent); }
+        button.attach-btn { background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; padding: 0 15px; cursor: pointer; }
+        button.attach-btn:hover { color: var(--text-main); }
+        input[type="text"] { flex-grow: 1; background: transparent; border: none; color: var(--text-main); padding: 12px 10px; font-family: inherit; font-size: 1rem; outline: none; }
+        button.send-btn { background: var(--accent); border: none; color: white; padding: 0 25px; border-radius: 12px; cursor: pointer; font-weight: 600; transition: all 0.3s; }
+        button.send-btn:hover { background: var(--accent-hover); }
+    </style>
+</head>
+<body>
+    <div id="auth-screen">
+        <div class="auth-card">
+            <h2 id="auth-title">Welcome to NexusMind</h2>
+            <input type="text" id="auth-fullname" class="auth-input" placeholder="Full Name" style="display: none;">
+            <input type="email" id="auth-username" class="auth-input" placeholder="Email (e.g. name@domain.com)">
+            <input type="password" id="auth-password" class="auth-input" placeholder="Password">
+            <div id="auth-error" class="auth-error"></div>
+            <button class="auth-btn" id="auth-submit" onclick="handleAuth()">Login</button>
+            <div class="auth-toggle" onclick="toggleAuthMode()" id="auth-toggle-text">Don't have an account? Sign up</div>
+        </div>
+    </div>
+
+    <div class="container" id="main-app">
+        <div class="sidebar">
+            <div class="sidebar-header" id="sidebar-title">My Classroom Chats</div>
+            <button class="new-chat-btn" onclick="startNewChat()"><span>+</span> New Chat</button>
+            <div class="history-list" id="history-list"></div>
+            <div class="user-profile">
+                <div class="user-name-container">
+                    <span class="user-name" id="display-fullname">Name</span>
+                    <span class="user-email" id="display-username">@email.com</span>
+                </div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="main-chat-area">
+            <header>
+                <h1 id="app-title">NexusMind // Classroom</h1>
+                <div class="toggle-container">
+                    <button class="toggle-btn active" id="btn-classroom" onclick="setMode('classroom')">Classroom</button>
+                    <button class="toggle-btn" id="btn-career" onclick="setMode('career')">Interview</button>
+                    <button class="toggle-btn" id="btn-resume" onclick="setMode('resume')">Resume</button>
+                </div>
+            </header>
+            <div id="chat-box"></div>
+            <div class="upload-preview" id="upload-preview">No file attached.</div>
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <input type="file" id="file-upload" accept="image/png, image/jpeg, image/webp, application/pdf" style="display: none;" onchange="handleFileSelect(event)">
+                    <button class="attach-btn" onclick="document.getElementById('file-upload').click()" title="Attach File">📎</button>
+                    <input type="text" id="user-input" placeholder="Message NexusMind..." onkeypress="handleEnter(event)">
+                    <button class="send-btn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let isLoginMode = true;
+        
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('auth-title').innerText = isLoginMode ? "Welcome to NexusMind" : "Create Account";
+            document.getElementById('auth-submit').innerText = isLoginMode ? "Login" : "Sign Up";
+            document.getElementById('auth-toggle-text').innerText = isLoginMode ? "Don't have an account? Sign up" : "Already have an account? Login";
+            
+            document.getElementById('auth-fullname').style.display = isLoginMode ? 'none' : 'block';
+            document.getElementById('auth-error').style.display = 'none';
+        }
+
+        async function handleAuth() {
+            const fullName = document.getElementById('auth-fullname').value.trim();
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value.trim();
+            const errorDiv = document.getElementById('auth-error');
+            
+            if (!username || !password || (!isLoginMode && !fullName)) {
+                errorDiv.innerText = "Please fill in all required fields.";
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(username)) {
+                errorDiv.innerText = "Please enter a valid email address (e.g., name@domain.com).";
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/signup';
+            const bodyData = isLoginMode ? { username, password } : { fullName, username, password };
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyData)
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('nexus_token', data.token);
+                    localStorage.setItem('nexus_username', data.username);
+                    if (data.fullName) localStorage.setItem('nexus_fullname', data.fullName);
+                    checkAuth(); 
+                } else {
+                    errorDiv.innerText = data.error;
+                    errorDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errorDiv.innerText = "Server error. Please try again.";
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            checkAuth(); 
+        }
+
+        function getAuthHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('nexus_token')}`
+            };
+        }
+
+        function checkAuth() {
+            const token = localStorage.getItem('nexus_token');
+            const username = localStorage.getItem('nexus_username');
+            const fullName = localStorage.getItem('nexus_fullname') || 'User';
+            
+            if (token) {
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('main-app').style.display = 'flex';
+                document.getElementById('display-fullname').innerText = fullName;
+                document.getElementById('display-username').innerText = username;
+                setMode('classroom'); 
+            } else {
+                document.getElementById('auth-screen').style.display = 'flex';
+                document.getElementById('main-app').style.display = 'none';
+            }
+        }
+
+        let currentMode = 'classroom';
+        let currentFile = null;
+        const chatBox = document.getElementById('chat-box');
+        
+        async function loadHistory() {
+            try {
+                const response = await fetch(`/api/history?mode=${currentMode}`, { headers: getAuthHeaders() });
+                if (response.status === 401 || response.status === 403) return logout(); 
+                
+                const historyData = await response.json();
+                const historyList = document.getElementById('history-list');
+                historyList.innerHTML = '';
+
+                if(historyData.length === 0) {
+                    historyList.innerHTML = '<div style="color: #64748b; font-size: 0.8rem; text-align: center; margin-top: 20px;">No logs found.</div>';
+                    return;
+                }
+
+                historyData.forEach(item => {
+                    const date = new Date(item.timestamp).toLocaleDateString();
+                    const el = document.createElement('div');
+                    el.className = 'history-item';
+                    el.innerHTML = `<div class="history-prompt">${item.userPrompt}</div><div class="history-date">${date}</div>`;
+                    el.onclick = () => viewPastChat(item);
+                    historyList.appendChild(el);
+                });
+            } catch(e) { console.error("Could not load history"); }
+        }
+
+        function viewPastChat(item) {
+            setMode(item.mode, true);
+            appendMessage('User', item.userPrompt, 'user-msg');
+            const formatted = item.aiResponse.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            appendMessage('AI', formatted, 'ai-msg');
+        }
+
+        function startNewChat() {
+            chatBox.innerHTML = '';
+            let welcomeText = "";
+            if (currentMode === 'classroom') welcomeText = "Classroom Module Online. Ask a question or attach a diagram.";
+            if (currentMode === 'career') welcomeText = "Interview Module Online. Paste logic or attach a code screenshot.";
+            if (currentMode === 'resume') welcomeText = "Resume Bridge Online. Describe experience or attach a document image.";
+            appendMessage('System', welcomeText, 'ai-msg');
+        }
+
+        function setMode(mode, isViewingHistory = false) {
+            currentMode = mode;
+            document.getElementById('btn-classroom').classList.toggle('active', mode === 'classroom');
+            document.getElementById('btn-career').classList.toggle('active', mode === 'career');
+            document.getElementById('btn-resume').classList.toggle('active', mode === 'resume');
+            
+            const titles = { 'classroom': 'Classroom', 'career': 'Interview', 'resume': 'Resume' };
+            const sidebarTitles = { 'classroom': 'My Classroom Chats', 'career': 'My Interview Chats', 'resume': 'My Resume Chats' };
+            
+            document.getElementById('app-title').innerText = `NexusMind // ${titles[mode]}`;
+            document.getElementById('sidebar-title').innerText = sidebarTitles[mode];
+            
+            chatBox.innerHTML = '';
+            loadHistory();
+            if (!isViewingHistory) startNewChat();
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64String = e.target.result.split(',')[1];
+                currentFile = { mimeType: file.type, data: base64String, name: file.name };
+                document.getElementById('upload-preview').style.display = 'block';
+                document.getElementById('upload-preview').innerText = `✓ File attached: ${file.name}`;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function appendMessage(sender, text, className, isStreaming = false) {
+            let msgElement;
+            if (isStreaming) {
+                msgElement = document.getElementById('current-stream');
+                if (!msgElement) {
+                    msgElement = document.createElement('div');
+                    msgElement.id = 'current-stream';
+                    msgElement.className = `message ${className}`;
+                    msgElement.innerHTML = `<span>${sender}</span><div class="content">${text}</div>`;
+                    chatBox.appendChild(msgElement);
+                } else {
+                    msgElement.querySelector('.content').innerHTML += text;
+                }
+            } else {
+                msgElement = document.createElement('div');
+                msgElement.className = `message ${className}`;
+                msgElement.innerHTML = `<span>${sender}</span><div class="content">${text}</div>`;
+                const currentStream = document.getElementById('current-stream');
+                if (currentStream) currentStream.removeAttribute('id');
+                chatBox.appendChild(msgElement);
+            }
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        
+        function handleEnter(e) { if (e.key === 'Enter') sendMessage(); }
+        
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            if (!message && !currentFile) return;
+            
+            let displayMessage = message;
+            if (currentFile) displayMessage += `<br><i style="font-size:0.85em; opacity:0.8;">[Attached: ${currentFile.name}]</i>`;
+            if (!message && currentFile) displayMessage = `<i style="font-size:0.85em; opacity:0.8;">[Uploaded: ${currentFile.name}]</i>`;
+            
+            appendMessage('User', displayMessage, 'user-msg');
+            input.value = '';
+            
+            const payloadFile = currentFile;
+            currentFile = null;
+            document.getElementById('upload-preview').style.display = 'none';
+            document.getElementById('file-upload').value = '';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ message, mode: currentMode, file: payloadFile })
+                });
+                
+                if (response.status === 401 || response.status === 403) return logout();
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const parts = buffer.split('\n\n');
+                    buffer = parts.pop();
+                    for (const part of parts) {
+                        if (part.startsWith('data: ')) {
+                            const dataStr = part.slice(6).trim();
+                            if (dataStr === '[DONE]') {
+                                const currentStream = document.getElementById('current-stream');
+                                if (currentStream) currentStream.removeAttribute('id');
+                                loadHistory();
+                                continue;
+                            }
+                            try {
+                                const data = JSON.parse(dataStr);
+                                if (data.text) {
+                                    let formattedText = data.text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                                    appendMessage('AI', formattedText, 'ai-msg', true);
+                                } else if (data.error) {
+                                    appendMessage('System Error', data.error, 'error-msg');
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                }
+            } catch (error) {
+                appendMessage('System Error', 'Server offline.', 'error-msg');
+            }
+        }
+        
+        checkAuth();
+    </script>
+</body>
+</html>

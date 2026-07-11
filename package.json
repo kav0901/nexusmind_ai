@@ -1,0 +1,17 @@
+{
+  "name": "ai-education-career-app",
+  "version": "1.0.0",
+  "description": "A dual-mode AI web application for classroom learning and career preparation.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/genai": "latest",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.7.4"
+  }
+}
