@@ -1,2 +1,18 @@
-﻿node_modules
+﻿# Dependencies (Docker installs these fresh inside the container)
+node_modules/
+
+# Environment Variables / Secrets
 .env
+
+# Git history and config
+.git
+.gitignore
+
+# Docker files (the container doesn't need its own blueprint)
+Dockerfile
+.dockerignore
+
+# Logs and OS files
+npm-debug.log
+.DS_Store
+README.md
