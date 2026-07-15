@@ -1,4 +1,5 @@
-﻿require('dotenv').config();
+﻿global.crypto = require('crypto');
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
@@ -67,7 +68,7 @@ app.post('/api/auth/signup', async (req, res) => {
         res.json({ token, username: newUser.username, fullName: newUser.fullName });
     } catch (err) { 
         if (err.name === 'ValidationError') return res.status(400).json({ error: "Please enter a valid email address (e.g., name@domain.com)." });
-        res.status(500).json({ error: "Signup failed." }); 
+        res.status(500).json({ error: err.message, stack: err.stack });
     }
 });
 
